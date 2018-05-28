@@ -1,6 +1,8 @@
 """plot general log file according to given indexes"""
 
 import sys
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -24,9 +26,13 @@ with open(filename, 'r') as fin:
             data.append(row)
 
 data = np.array(data)
-
+print(data)
 
 for index in sys.argv[2:]:
     index = int(index)
-    plt.plot(data[:, index])
-plt.show()
+    print(data[:3000, index])
+    plt.plot(data[:3000, index], label='agent' if index == 1 else 'agent_strong')
+
+print('saving ...')
+plt.savefig(filename.split('.')[0])
+#plt.show()
