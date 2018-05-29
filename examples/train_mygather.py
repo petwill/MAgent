@@ -6,13 +6,16 @@ import argparse
 import logging as log
 import time
 import collections
+import numpy as np
+import os
+import json
 
 import magent
 from magent.builtin.mx_model import DeepQNetwork as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
 
-def load_config(size):
+def load_config(size, diminishing):
     gw = magent.gridworld
     cfg = gw.Config()
 
@@ -21,7 +24,7 @@ def load_config(size):
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
-        name="agent",
+        name="agent_diminishing" if diminishing else "agent",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
               'view_range': gw.CircleRange(7), 'attack_range': gw.CircleRange(1),
               'damage': 6, 'step_recover': 0,
@@ -29,7 +32,7 @@ def load_config(size):
               })
 
     agent_strong = cfg.register_agent_type(
-        name="agent_strong",
+        name="agent_strong_diminishing" if diminishing else "agent_strong",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
               'view_range': gw.CircleRange(7), 'attack_range': gw.CircleRange(1),
               'damage': 30, 'step_recover': 0,
@@ -79,18 +82,21 @@ def generate_map(env, map_size, food_handle, player_handles):
     add_square(pos, map_size * 0.7, 6)
     shuffle(pos)
 
-    # agent
-    # pos = []
-    # [1, map_size-2]
-    # pos = [[1,1], [map_size-2, map_size-2]]
-    # pos = [[map_size/2,map_size/2]]
+    def remove_duplicates(lst):
+        seen = set()
+        output = []
+        for ob in lst:
+            ob = tuple(ob)
+            if ob in seen:
+                continue
+            output.append(list(ob))
+            seen.add(ob)
+        return output
+
+    pos = remove_duplicates(pos)
+
     env.add_agents(player_handles[0], method="custom", pos=pos[:-100])
-
-    # pos = [[1, map_size-2], [map_size-2, 1]]
-    # pos = [[map_size-2, map_size-2]]
     env.add_agents(player_handles[1], method="custom", pos=pos[-100:])
-
-    # env.add_agents(player_handles[0], method="custom", pos=pos)
 
     # food
     pos = []
@@ -106,57 +112,12 @@ def generate_map(env, map_size, food_handle, player_handles):
     add_square(pos, map_size * 0.3 - 2, 1)
     add_square(pos, map_size * 0.3 - 4, 1)
     add_square(pos, map_size * 0.3 - 6, 1)
+    pos = remove_duplicates(pos)
     env.add_agents(food_handle, method="custom", pos=pos)
-    """
-    # legend
-    legend = [
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
-        [1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0,],
-        [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0,],
-        [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0,],
-        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0,],
-        [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0,],
-        [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0,],
-        [1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0,],
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
-    ]
-
-    org = [
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0,],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,],
-    ]
-
-    def draw(base_x, base_y, scale, data):
-        w, h = len(data), len(data[0])
-        pos = []
-        for i in range(w):
-            for j in range(h):
-                if data[i][j] == 1:
-                    start_x = i * scale + base_x
-                    start_y = j * scale + base_y
-                    for x in range(start_x, start_x + scale):
-                        for y in range(start_y, start_y + scale):
-                            pos.append([y, x])
-
-        env.add_agents(food_handle, method="custom", pos=pos)
-
-    scale = 1
-    w, h = len(legend), len(legend[0])
-    offset = -3
-    draw(offset + map_size // 2 - w // 2 * scale, map_size // 2 - h // 2 * scale, scale, legend)
-    draw(offset + map_size // 2 - w // 2 * scale + len(legend), map_size // 2 - h // 2 * scale, scale, org)
-    """
 
 
 def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1,
-                 print_every=10, record=False, render=False, eps=None):
+                 print_every=10, record=False, render=False, eps=None, diminishing=False):
     env.reset()
     generate_map(env, map_size, food_handle, player_handles)
 
@@ -180,6 +141,14 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     print("===== sample =====")
     print("eps %s number %s" % (eps, nums))
     start_time = time.time()
+
+    #####
+    # diminishing reward shaping config
+    #####
+    backpeak = 10
+    thresh = 3
+    ng = -100
+
     while not done:
         # take actions for every model
         for i in range(n):
@@ -189,7 +158,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             # add custom feature
             ########
             for j in range(len(ids[i])):
-                obs[i][1][j][0] = sum(history[ids[i][j]][-5:])
+                obs[i][1][j][0] = sum(history[ids[i][j]][-backpeak:])
 
 
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
@@ -200,35 +169,28 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         for i in range(n):
             rewards[i] = env.get_reward(player_handles[i])
             alives[i] = env.get_alive(player_handles[i])
+            total_rewards[i] += (np.array(rewards[i]) > 4).sum() 
 
-        for i in range(n):
-            total_rewards[i] += (sum(rewards[i]) > 4)
-
-        diminishing = False
         if diminishing:
             # implement reward shaping here
             thresh = 3
             for i in range(n):
+                cnt = 0
                 for idx, id in enumerate(ids[i]):
-                    ori_reward = (rewards[i][idx] > 4)
-                    history[id].append(ori_reward)
+                    ori_reward = rewards[i][idx]
+                    history[id].append(int(ori_reward > 4))
+                    xx = sum(history[id][-backpeak:])
+                    rewards[i][idx] = ori_reward if xx < thresh else ng
+                    if xx >= thresh:
+                        cnt += 1
+                print("agent_strong" if i else "agent", cnt)
 
-                    xx = sum(history[id][-5:])
-                    rewards[i][idx] = ori_reward if xx < thresh else -100
-                
-
+                    # if ori_reward > 4:
+                        # print("agent_strong" if i else "agent", ori_reward, xx, rewards[i][idx])
         # sample
         step_reward = 0
         if train_id != -1:
             for i in range(n):
-                """
-                print('ids', ids[i])
-                print('obs shape', obs[i][0].shape)
-                print('acts', acts[i])
-                print('rewards', rewards)
-                print('alives', alives)
-                input()
-                """
                 sample_buffer[i].record_step(ids[i], obs[i], acts[i], rewards[i], alives[i])
                 # step_reward = sum(rewards)
 
@@ -277,7 +239,25 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             total_loss, value = models[i].train(sample_buffer[i], print_every=250)
         train_time = time.time() - start_time
         print("train_time %.2f" % train_time)
-    
+
+    """
+    def to_json(data, filename):
+        print(data, filename)
+        with open(filename, 'w') as f:
+            json.dump(data, f)
+    """
+    if train_id == -1:
+        if diminishing:
+            dirname = "mygather_diminishing_history"
+            if not os.path.exists(dirname):
+                os.mkdir(dirname)
+            np.save('{}/{}.npy'.format(dirname, np.random.randint(10000)), history)
+        else:
+            dirname = "mygather_history"
+            if not os.path.exists(dirname):
+                os.mkdir(dirname)
+            np.save('{}/{}.npy'.format(dirname, np.random.randint(10000)), history)
+
     
     return total_loss, total_rewards, value, len(pos_reward_ct)
 
@@ -296,6 +276,7 @@ if __name__ == "__main__":
     parser.add_argument("--name", type=str, default="mygather")
     parser.add_argument("--record", action="store_true")
     parser.add_argument("--eval", action="store_true")
+    parser.add_argument("--diminishing", action="store_true")
     args = parser.parse_args()
 
     # set logger
@@ -305,8 +286,11 @@ if __name__ == "__main__":
     log.getLogger('').addHandler(console)
 
     # init env
-    env = magent.GridWorld(load_config(size=args.map_size))
-    env.set_render_dir("build/render/mygather/")
+    env = magent.GridWorld(load_config(size=args.map_size, diminishing=args.diminishing))
+    if args.diminishing:
+        env.set_render_dir("build/render/mygather_diminishing/")
+    else:
+        env.set_render_dir("build/render/mygather/")
 
     handles = env.get_handles()
     food_handle = handles[0]
@@ -322,10 +306,10 @@ if __name__ == "__main__":
 
     # load models
     models = [
-        RLModel(env, player_handles[0], "agent",
+        RLModel(env, player_handles[0], "agent_diminishing" if args.diminishing else "agent",
                 batch_size=512, memory_size=2 ** 19, target_update=1000,
                 train_freq=4, eval_obs=eval_obs[0]),
-        RLModel(env, player_handles[1], "agent_strong",
+        RLModel(env, player_handles[1], "agent_strong_diminishing" if args.diminishing else "agent_strong",
                 batch_size=512, memory_size=2 ** 19, target_update=1000,
                 train_freq=4, eval_obs=eval_obs[1])
     ]
@@ -372,7 +356,7 @@ if __name__ == "__main__":
                     play_a_round(env, args.map_size, food_handle, player_handles, models,
                                  train_id, record=False,
                                  render=args.render or (k+1) % args.render_every == 0,
-                                 print_every=args.print_every, eps=eps)
+                                 print_every=args.print_every, eps=eps, diminishing=args.diminishing)
             log.info("round %d\t loss: %.3f\t reward1: %.2f\t reward2: %.2f\t value: %.3f\t pos_reward_ct: %d"
                      % (k, loss, reward[0], reward[1], value, pos_reward_ct))
             print("round time %.2f  total time %.2f\n" % (time.time() - tic, time.time() - start))
