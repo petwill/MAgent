@@ -5,6 +5,8 @@ Train agents to gather food
 import argparse
 import logging as log
 import time
+import random
+from random import shuffle
 import collections
 import numpy as np
 import os
@@ -27,23 +29,24 @@ def load_config(size, diminishing):
         name="agent_diminishing" if diminishing else "agent",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
               'view_range': gw.CircleRange(7), 'attack_range': gw.CircleRange(1),
-              'damage': 6, 'step_recover': 0,
+              'damage': 25, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
 
     agent_strong = cfg.register_agent_type(
         name="agent_strong_diminishing" if diminishing else "agent_strong",
-        attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
+        attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 6,
               'view_range': gw.CircleRange(7), 'attack_range': gw.CircleRange(1),
-              'damage': 30, 'step_recover': 0,
+              'damage': 25, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
+              # 'kill_reward': 50
               })
 
     food = cfg.register_agent_type(
         name='food',
-        attr={'width': 1, 'length': 1, 'hp': 25, 'speed': 0,
+        attr={'width': 1, 'length': 1, 'hp': 20, 'speed': 0,
               'view_range': gw.CircleRange(1), 'attack_range': gw.CircleRange(0),
-              'kill_reward': 5})
+              'kill_reward': 50})
 
     g_f = cfg.add_group(food)
     g_s = cfg.add_group(agent)
@@ -57,6 +60,7 @@ def load_config(size, diminishing):
     c = gw.AgentSymbol(g_z, index='any')
 
     cfg.add_reward_rule(gw.Event(a, 'attack', b), receiver=a, value=2.5)
+    # cfg.add_reward_rule(gw.Event(a, 'attack', c), receiver=a, value=5)
     cfg.add_reward_rule(gw.Event(c, 'attack', b), receiver=c, value=2.5)
     
     return cfg
@@ -73,14 +77,10 @@ def generate_map(env, map_size, food_handle, player_handles):
         for y in range(center_y - side//2, center_y + side//2 + 1, gap):
             pos.append([center_x - side//2, y])
             pos.append([center_x + side//2, y])
-
-
-    from random import shuffle
-    pos = []
-    add_square(pos, map_size * 0.9, 3)
-    add_square(pos, map_size * 0.8, 4)
-    add_square(pos, map_size * 0.7, 6)
-    shuffle(pos)
+    
+    def add_random(pos, num):
+        for _ in range(num):
+            pos.append([random.randint(1, map_size-2), random.randint(1, map_size-2)])
 
     def remove_duplicates(lst):
         seen = set()
@@ -93,26 +93,32 @@ def generate_map(env, map_size, food_handle, player_handles):
             seen.add(ob)
         return output
 
+    pos = []
+    add_square(pos, map_size * 0.9, 3)
+    add_square(pos, map_size * 0.8, 4)
+    add_square(pos, map_size * 0.7, 6)
+    add_random(pos, 5)
+    shuffle(pos)
     pos = remove_duplicates(pos)
 
-    env.add_agents(player_handles[0], method="custom", pos=pos[:-100])
-    env.add_agents(player_handles[1], method="custom", pos=pos[-100:])
+
+    sz = len(pos)//4
+    env.add_agents(player_handles[0], method="custom", pos=pos[:-sz])
+    env.add_agents(player_handles[1], method="custom", pos=pos[-sz:])
 
     # food
     pos = []
     mx = my = map_size/2
-    # pos = [[mx,my], [mx-1, my], [mx+1, my], [mx, my-1], [mx, my+1]]
     add_square(pos, map_size * 0.65, 10)
-    add_square(pos, map_size * 0.6,  10)
+    add_square(pos, map_size * 0.6,  1)
     add_square(pos, map_size * 0.55, 10)
-    add_square(pos, map_size * 0.5,  4)
+    add_square(pos, map_size * 0.5,  1)
     add_square(pos, map_size * 0.45, 3)
     add_square(pos, map_size * 0.4, 1)
     add_square(pos, map_size * 0.3, 1)
     add_square(pos, map_size * 0.3 - 2, 1)
     add_square(pos, map_size * 0.3 - 4, 1)
     add_square(pos, map_size * 0.3 - 6, 1)
-    pos = remove_duplicates(pos)
     env.add_agents(food_handle, method="custom", pos=pos)
 
 
@@ -149,7 +155,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     thresh = 3
     ng = -100
 
-    while not done:
+    while not done or True:
         # take actions for every model
         for i in range(n):
             obs[i] = env.get_observation(player_handles[i])
@@ -168,8 +174,13 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         done = env.step()
         for i in range(n):
             rewards[i] = env.get_reward(player_handles[i])
+            print(max(rewards[i]))
             alives[i] = env.get_alive(player_handles[i])
             total_rewards[i] += (np.array(rewards[i]) > 4).sum() 
+
+        food_left = env.get_alive(food_handle)
+        if not food_left[0]:
+            env.add_agents(food_handle, method="custom", pos=[[random.randint(1, map_size-2), random.randint(1, map_size-2)]])
 
         if diminishing:
             # implement reward shaping here
@@ -185,8 +196,6 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                         cnt += 1
                 print("agent_strong" if i else "agent", cnt)
 
-                    # if ori_reward > 4:
-                        # print("agent_strong" if i else "agent", ori_reward, xx, rewards[i][idx])
         # sample
         step_reward = 0
         if train_id != -1:
@@ -246,6 +255,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         with open(filename, 'w') as f:
             json.dump(data, f)
     """
+    """
     if train_id == -1:
         if diminishing:
             dirname = "mygather_diminishing_history"
@@ -257,7 +267,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             if not os.path.exists(dirname):
                 os.mkdir(dirname)
             np.save('{}/{}.npy'.format(dirname, np.random.randint(10000)), history)
-
+    """
     
     return total_loss, total_rewards, value, len(pos_reward_ct)
 
@@ -287,10 +297,8 @@ if __name__ == "__main__":
 
     # init env
     env = magent.GridWorld(load_config(size=args.map_size, diminishing=args.diminishing))
-    if args.diminishing:
-        env.set_render_dir("build/render/mygather_diminishing/")
-    else:
-        env.set_render_dir("build/render/mygather/")
+    render_dir = "build/render/"+args.name
+    env.set_render_dir(render_dir)
 
     handles = env.get_handles()
     food_handle = handles[0]
@@ -315,7 +323,8 @@ if __name__ == "__main__":
     ]
 
     # load saved model
-    save_dir = "save_model"
+    save_dir = args.name + "_save_model"
+    
     if args.load_from is not None:
         start_from = args.load_from
         print("load models...")
