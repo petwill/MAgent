@@ -22,7 +22,7 @@ def load_config(size, diminishing):
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    cfg.set({"embedding_size":11})
+    cfg.set({"embedding_size":14})
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
@@ -136,7 +136,9 @@ def generate_map(env, map_size, food_handle, player_handles):
 
 
 def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1,
-                 print_every=10, record=False, render=False, eps=None, diminishing=False):
+                 print_every=10, record=False, render=False, eps=None,
+                 diminishing=False, share_reward=False):
+
     env.reset()
     generate_map(env, map_size, food_handle, player_handles)
 
@@ -195,21 +197,57 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             ##########
             # add feature, food coordinate
             #########
-            obs[i][1][:, 0] = 0
+            # obs[i][1][:, 0] = 0
+
+            # give 2D ID embedding
+            cnt = 2
+            # cnt += 2
 
             food_pos = env.get_pos(food_handle).tolist()[0]
             for j in range(len(ids[i])):
-                obs[i][1][j, 1] = food_pos[0]
-                obs[i][1][j, 2] = food_pos[1]
+                obs[i][1][j, cnt] = food_pos[0]
+                obs[i][1][j, cnt+1] = food_pos[1]
 
+            cnt += 2
             # add feature, add coordinate between agents
-            cnt = 3
             for k in range(n):
                 for l in range(len(ids[k])):
                     obs[i][1][:, cnt] = prev_pos[k][l][0]
                     obs[i][1][:, cnt+1] = prev_pos[k][l][1]
-                    cnt+=2
+                    cnt += 2
 
+            assert cnt == 14
+            # print(cnt)
+            # print(obs[i][0].shape, obs[i][1].shape)
+            # input()
+            # print(obs[i][1])
+            # input()
+            """
+            ###########
+            # add feature, add my coordinate
+            ##########
+            for j in range(len(ids[i])):
+                obs[i][1][j, 3] = prev_pos[i][j][0]
+                obs[i][1][j, 4] = prev_pos[i][j][1]
+
+            ##########
+            # add feature, add all other agents' coordinate
+            ##########
+            for j in range(len(ids[i])):
+                cnt = 5
+                # add coordinate of the same group's agents
+                for k in range(len(ids[i])):
+                    if k == j: 
+                        continue
+                    obs[i][1][j, cnt] = prev_pos[k][l][0]
+                    obs[i][1][j, cnt+1] = prev_pos[k][l][0]
+                    cnt += 2
+                # add coordinate of the other group's agents
+                for k in range(len(ids[1-i])):
+                    obs[i][1][:, cnt] = prev_pos[k][l][0]
+                    obs[i][1][:, cnt+1] = prev_pos[k][l][1]
+                    cnt+=2
+            """
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
             env.set_action(player_handles[i], acts[i])
 
@@ -231,7 +269,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                 pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
 
             env.add_agents(food_handle, method="custom", pos=[pos])
-            print('here', pos)
+            # print('here', pos)
 
         # reward shaping for hunter prey scenario
         shaping=False
@@ -257,8 +295,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                         cnt += 1
                 print("agent_strong" if i else "agent", cnt)
 
-        collaboration = False
-        if collaboration:
+        if share_reward:
             for i in range(n):
                 s = sum(rewards[i])
                 for j in range(len(rewards[i])):
@@ -347,6 +384,7 @@ if __name__ == "__main__":
     parser.add_argument("--record", action="store_true")
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--diminishing", action="store_true")
+    parser.add_argument("--share_reward", action="store_true")
     args = parser.parse_args()
 
     # set logger
@@ -425,7 +463,8 @@ if __name__ == "__main__":
                     play_a_round(env, args.map_size, food_handle, player_handles, models,
                                  train_id, record=False,
                                  render=args.render or (k+1) % args.render_every == 0,
-                                 print_every=args.print_every, eps=eps, diminishing=args.diminishing)
+                                 print_every=args.print_every, eps=eps, diminishing=args.diminishing,
+                                 share_reward=args.share_reward)
             log.info("round %d\t loss: %.3f\t reward1: %.2f\t reward2: %.2f\t value: %.3f\t pos_reward_ct: %d"
                      % (k, loss, reward[0], reward[1], value, pos_reward_ct))
             print("round time %.2f  total time %.2f\n" % (time.time() - tic, time.time() - start))
