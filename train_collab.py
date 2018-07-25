@@ -22,7 +22,7 @@ def load_config(size, diminishing):
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    cfg.set({"embedding_size":14})
+    cfg.set({"embedding_size":22})
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
@@ -58,9 +58,11 @@ def load_config(size, diminishing):
     # c for strong agent
     c = gw.AgentSymbol(g_z, index='any')
 
-    cfg.add_reward_rule(gw.Event(a, 'attack', b), receiver=a, value=2.5)
-    # cfg.add_reward_rule(gw.Event(a, 'attack', c), receiver=a, value=5)
-    cfg.add_reward_rule(gw.Event(c, 'attack', b), receiver=c, value=2.5)
+    cfg.add_reward_rule(gw.Event(a, 'attack', b), receiver=a, value=50)
+    cfg.add_reward_rule(gw.Event(c, 'attack', b), receiver=c, value=50)
+
+    cfg.add_reward_rule(gw.Event(c, 'attack', a), receiver=c, value=-50)
+    cfg.add_reward_rule(gw.Event(a, 'attack', c), receiver=a, value=-50)
     
     return cfg
 
@@ -113,12 +115,12 @@ def generate_map(env, map_size, food_handle, player_handles):
 
 
     # food
-    pos = []
-    add_random(pos, 1)
-    while pos[0] in player_pos:
-        pos = []
-        add_random(pos, 1)
-    pos = remove_duplicates(pos)
+    # pos = []
+    # add_random(pos, 1)
+    # while pos[0] in player_pos:
+        # pos = []
+        # add_random(pos, 1)
+    # pos = remove_duplicates(pos)
     # mx = my = map_size/2
     # pos = [[mx,my], [mx-1, my], [mx+1, my], [mx, my-1], [mx, my+1]]
     # add_square(pos, map_size * 0.65, 10)
@@ -131,13 +133,13 @@ def generate_map(env, map_size, food_handle, player_handles):
     # add_square(pos, map_size * 0.3 - 2, 1)
     # add_square(pos, map_size * 0.3 - 4, 1)
     # add_square(pos, map_size * 0.3 - 6, 1)
-    print(pos)
-    env.add_agents(food_handle, method="custom", pos=pos)
+    # print(pos)
+    env.add_agents(food_handle, method="random", n=5)
 
 
 def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1,
                  print_every=10, record=False, render=False, eps=None,
-                 diminishing=False, share_reward=False):
+                 diminishing=False, shaping=False):
 
     env.reset()
     generate_map(env, map_size, food_handle, player_handles)
@@ -168,18 +170,17 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     #####
     # diminishing reward shaping config
     #####
-    backpeak = 10
-    thresh = 3
+    backpeak = 3
+    thresh = 2
     ng = -100
 
-    while True:
+    while not done:
         nums = [env.get_num(handle) for handle in player_handles]
-        if 0 in nums:
+        if nums != [4, 1]:
             break
         
 
         # take actions for every model
-        fuck=False
         for i in range(n):
             obs[i] = env.get_observation(player_handles[i])
             ids[i] = env.get_agent_id(player_handles[i])
@@ -190,7 +191,6 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             # add custom feature
             ########
             if diminishing:
-                assert False
                 for j in range(len(ids[i])):
                     obs[i][1][j, 0] = sum(history[ids[i][j]][-backpeak:])
 
@@ -203,12 +203,15 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             cnt = 2
             # cnt += 2
 
-            food_pos = env.get_pos(food_handle).tolist()[0]
-            for j in range(len(ids[i])):
-                obs[i][1][j, cnt] = food_pos[0]
-                obs[i][1][j, cnt+1] = food_pos[1]
+            food_positions = env.get_pos(food_handle).tolist()
+            assert len(food_positions) == 5
+            for food_pos in food_positions:
+                for j in range(len(ids[i])):
+                    obs[i][1][j, cnt] = food_pos[0]
+                    obs[i][1][j, cnt+1] = food_pos[1]
 
-            cnt += 2
+                cnt += 2
+
             # add feature, add coordinate between agents
             for k in range(n):
                 for l in range(len(ids[k])):
@@ -216,8 +219,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     obs[i][1][:, cnt+1] = prev_pos[k][l][1]
                     cnt += 2
 
-            assert cnt == 14
-            # print(cnt)
+            assert cnt == 22
             # print(obs[i][0].shape, obs[i][1].shape)
             # input()
             # print(obs[i][1])
@@ -260,30 +262,29 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             cur_pos[i] = env.get_pos(player_handles[i])
             total_rewards[i] += (np.array(rewards[i]) > 40).sum()
 
-        # respawn food
-        if done:
-            player_pos = cur_pos[0].tolist() + cur_pos[1].tolist() + env.get_pos(food_handle).tolist()
-            
-            pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
-            while pos in player_pos:
-                pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
-
-            env.add_agents(food_handle, method="custom", pos=[pos])
-            # print('here', pos)
 
         # reward shaping for hunter prey scenario
-        shaping=False
-        if shaping and not done:
-            food_pos = env.get_pos(food_handle)
-            assert food_pos.shape[0] == 1
-            food_pos = food_pos[0]
-            
-            rewards[1][0] += 10*float(1/(abs(food_pos[0]-cur_pos[1][0][0])+abs(food_pos[1]-cur_pos[1][0][1])) - \
-                                   1/(abs(food_pos[0]-prev_pos[1][0][0])+abs(food_pos[1]-prev_pos[1][0][1])))
+        if shaping:
+            target_pos = env.get_pos(player_handles[1])
+            assert len(target_pos) == 1
+            target_pos = target_pos[0]
+            for i in range(4):
+                cur_dis = abs(target_pos[0]-cur_pos[0][i][0])+abs(target_pos[1]-cur_pos[0][i][1])
+                rewards[0][i] -= cur_dis 
+
+        # print(rewards)
+        # input()
+
+        """
+        for i in range(n):
+            for idx, id in enumerate(ids[i]):
+                print(history[id][-backpeak:])
+            input()
+        """
 
         if diminishing:
+
             # implement reward shaping here
-            thresh = 3
             for i in range(n):
                 cnt = 0
                 for idx, id in enumerate(ids[i]):
@@ -293,14 +294,15 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     rewards[i][idx] = ori_reward if xx < thresh else ng
                     if xx >= thresh:
                         cnt += 1
-                print("agent_strong" if i else "agent", cnt)
+                # print("agent_strong" if i else "agent", cnt)
 
+        """
         if share_reward:
             for i in range(n):
                 s = sum(rewards[i])
                 for j in range(len(rewards[i])):
                     rewards[i][j] = s
-
+        """
         # sample
         step_reward = [None for _ in range(n)]
         if train_id != -1:
@@ -321,6 +323,19 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         # clear dead agents
         env.clear_dead()
 
+        # respawn
+        food_num = env.get_num(food_handle)
+        for _ in range(5-food_num):
+            occupied_pos = cur_pos[0].tolist() + cur_pos[1].tolist() + env.get_pos(food_handle).tolist()
+            
+            pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
+            while pos in occupied_pos:
+                pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
+
+            env.add_agents(food_handle, method="custom", pos=[pos])
+
+            # print('here', pos)
+
         """
         # stats info
         for i in range(n):
@@ -332,9 +347,13 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                   (step_ct, [food_num] + nums, step_reward))
         """
         step_ct += 1
-
-        if step_ct > 1000:
-            break
+        
+        if train_id != -1:
+            if step_ct > 1000:
+                break
+        else:
+            if sum(total_rewards) > 1000:
+                break
 
     # train
     total_loss = value = 0
@@ -346,25 +365,6 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         train_time = time.time() - start_time
         print("train_time %.2f" % train_time)
 
-    """
-    def to_json(data, filename):
-        print(data, filename)
-        with open(filename, 'w') as f:
-            json.dump(data, f)
-    """
-    """
-    if train_id == -1:
-        if diminishing:
-            dirname = "mygather_diminishing_history"
-            if not os.path.exists(dirname):
-                os.mkdir(dirname)
-            np.save('{}/{}.npy'.format(dirname, np.random.randint(10000)), history)
-        else:
-            dirname = "mygather_history"
-            if not os.path.exists(dirname):
-                os.mkdir(dirname)
-            np.save('{}/{}.npy'.format(dirname, np.random.randint(10000)), history)
-    """
     
     return total_loss, total_rewards, value, len(pos_reward_ct)
 
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     parser.add_argument("--record", action="store_true")
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--diminishing", action="store_true")
-    parser.add_argument("--share_reward", action="store_true")
+    parser.add_argument("--shaping", action="store_true")
     args = parser.parse_args()
 
     # set logger
@@ -464,7 +464,7 @@ if __name__ == "__main__":
                                  train_id, record=False,
                                  render=args.render or (k+1) % args.render_every == 0,
                                  print_every=args.print_every, eps=eps, diminishing=args.diminishing,
-                                 share_reward=args.share_reward)
+                                 shaping=args.shaping)
             log.info("round %d\t loss: %.3f\t reward1: %.2f\t reward2: %.2f\t value: %.3f\t pos_reward_ct: %d"
                      % (k, loss, reward[0], reward[1], value, pos_reward_ct))
             print("round time %.2f  total time %.2f\n" % (time.time() - tic, time.time() - start))
