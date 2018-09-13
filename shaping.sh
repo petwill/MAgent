@@ -5,8 +5,8 @@ export PYTHONPATH=$(pwd)/python:$PYTHONPATH
 MAP_SIZE=20
 N_ROUND=15000
 
-rm -f collab_raw.log
-rm -f collab_origin.log
+#rm -f collab_raw.log
+#rm -f collab_origin.log
 
 for coe in 1 2 3 
 do
