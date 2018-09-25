@@ -2,18 +2,22 @@
 . ~/ENV/bin/activate
 export PYTHONPATH=$(pwd)/python:$PYTHONPATH
 
-MAP_SIZE=30
-NAME=collab_diminishing0
+MAP_SIZE=20
+
+NAME=$1
+size0=$2
+size1=$3
 
 # reset
-#rm -f $NAME.log
-#rm -f ./build/render/$NAME/*
+rm -f $NAME.log
+rm -f ./build/render/$NAME/*
 
 # original game
 python3 train_collab.py \
   --map_size $MAP_SIZE \
-  --n_round 1000 \
+  --n_round 5000 \
   --render_every 100 \
   --save_every 100 \
   --name $NAME \
-  --train --diminishing
+  --size0 $size0 --size1 $size1 --foodnum 50 \
+  --train --adversarial
