@@ -17,14 +17,16 @@ from magent.builtin.mx_model import DeepQNetwork as RLModel
 #from magent.builtin.mx_model import AdvantageActorCritic as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
+total_num = 50
+total_food_num = 20
 
 def load_config(size):
     gw = magent.gridworld
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    cfg.set({"embedding_size":22 + 33})
-    cfg.set({"embedding_size":22 })
+    # cfg.set({"embedding_size":22 + 33})
+    cfg.set({"embedding_size": 5 + total_num*2 + total_food_num*2})
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
@@ -113,8 +115,8 @@ def generate_map(env, map_size, food_handle, player_handles):
 
     # player_pos = [[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1], [(map_size-1)//2, (map_size-1)//2]]
     # env.add_agents(player_handles[0], method="custom", pos=[[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1]])
-    env.add_agents(player_handles[1], method="random", n=1)
-    env.add_agents(player_handles[0], method="random", n=4)
+    env.add_agents(player_handles[1], method="random", n=total_num-args.coop_num)
+    env.add_agents(player_handles[0], method="random", n=args.coop_num)
 
 
     # food
@@ -137,7 +139,7 @@ def generate_map(env, map_size, food_handle, player_handles):
     # add_square(pos, map_size * 0.3 - 4, 1)
     # add_square(pos, map_size * 0.3 - 6, 1)
     # print(pos)
-    env.add_agents(food_handle, method="random", n=5)
+    env.add_agents(food_handle, method="random", n=total_food_num)
 
 
 def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1,
@@ -179,9 +181,9 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     X_train = []
     y_train = []
     while not done:
-        nums = [env.get_num(handle) for handle in player_handles]
-        if nums != [4, 1]:
-            break
+        # nums = [env.get_num(handle) for handle in player_handles]
+        # if nums != [4, 1]:
+            # break
 
 
         # get observation
@@ -198,11 +200,11 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                 for j in range(len(ids[i])):
                     obs[i][1][j, 0] = sum(history[ids[i][j]][-backpeak:])
 
-            # give 2D ID embedding
-            cnt = 2
+            # give ID embedding
+            cnt = 5
 
             food_positions = env.get_pos(food_handle).tolist()
-            assert len(food_positions) == 5
+            assert len(food_positions) == total_food_num
             for food_pos in food_positions:
                 for j in range(len(ids[i])):
                     obs[i][1][j, cnt] = food_pos[0]
@@ -217,14 +219,9 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     obs[i][1][:, cnt+1] = prev_pos[k][l][1]
                     cnt += 2
 
-            assert cnt == 22
+            assert cnt == 5 + total_num * 2 + total_food_num * 2
 
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
-            # if i == 1:
-                # X_train.append(obs[1][1][0])
-                # y_train.append(acts[1][0])
-            # print(acts[i])
-            # input()
             env.set_action(player_handles[i], acts[i])
 
         # simulate one step
@@ -239,17 +236,8 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
         # if args.adversarial and args.load_from is None:
         if args.adversarial:
-            for i in range(4):
-                rewards[0][i] -= args.coe * rewards[1][0]
-            """
-            target_pos = env.get_pos(player_handles[1])
-            assert len(target_pos) == 1
-            target_pos = target_pos[0]
-            for i in range(4):
-                cur_dis = abs(target_pos[0]-cur_pos[0][i][0])+abs(target_pos[1]-cur_pos[0][i][1])
-                rewards[0][i] -= cur_dis
-
-            """
+            for i in range(args.coop_num):
+                rewards[0][i] -= args.coe * sum(rewards[1])/len(rewards[1])
 
         if args.diminishing:
 
@@ -293,7 +281,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
         # respawn
         food_num = env.get_num(food_handle)
-        for _ in range(5-food_num):
+        for _ in range(total_food_num-food_num):
             occupied_pos = cur_pos[0].tolist() + cur_pos[1].tolist() + env.get_pos(food_handle).tolist()
 
             pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
@@ -363,6 +351,7 @@ if __name__ == "__main__":
     parser.add_argument("--given", action="store_true")
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--coe", type=float)
+    parser.add_argument("--coop_num", type=int, default=40)
     args = parser.parse_args()
 
     # set logger

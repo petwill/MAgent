@@ -23,7 +23,7 @@ def load_config(size):
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    cfg.set({"embedding_size":22 + 33})
+    # cfg.set({"embedding_size":22 + 33})
     cfg.set({"embedding_size":22 })
     cfg.set({"minimap_mode": True})
 
@@ -113,8 +113,8 @@ def generate_map(env, map_size, food_handle, player_handles):
 
     # player_pos = [[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1], [(map_size-1)//2, (map_size-1)//2]]
     # env.add_agents(player_handles[0], method="custom", pos=[[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1]])
-    env.add_agents(player_handles[1], method="random", n=1)
-    env.add_agents(player_handles[0], method="random", n=4)
+    env.add_agents(player_handles[0], method="random", n=args.num_coop)
+    env.add_agents(player_handles[1], method="random", n=5-args.num_coop)
 
 
     # food
@@ -179,9 +179,9 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     X_train = []
     y_train = []
     while not done:
-        nums = [env.get_num(handle) for handle in player_handles]
-        if nums != [4, 1]:
-            break
+        # nums = [env.get_num(handle) for handle in player_handles]
+        # if nums != [3, 2]:
+            # break
 
 
         # get observation
@@ -237,10 +237,10 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             total_rewards[i] += (np.array(rewards[i]) > .8).sum()
 
 
-        # if args.adversarial and args.load_from is None:
-        if args.adversarial:
-            for i in range(4):
-                rewards[0][i] -= args.coe * rewards[1][0]
+        if args.adversarial and args.load_from is None:
+        # if args.adversarial:
+            for i in range(args.num_coop):
+                rewards[0][i] -= args.coe * sum(rewards[1])/len(rewards[1])
             """
             target_pos = env.get_pos(player_handles[1])
             assert len(target_pos) == 1
@@ -363,6 +363,7 @@ if __name__ == "__main__":
     parser.add_argument("--given", action="store_true")
     parser.add_argument("--log", action="store_true")
     parser.add_argument("--coe", type=float)
+    parser.add_argument("--num_coop", type=int, default=4)
     args = parser.parse_args()
 
     # set logger

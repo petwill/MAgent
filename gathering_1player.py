@@ -17,13 +17,14 @@ from magent.builtin.mx_model import DeepQNetwork as RLModel
 #from magent.builtin.mx_model import AdvantageActorCritic as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
+cnum = 1
 
 def load_config(size):
     gw = magent.gridworld
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    cfg.set({"embedding_size":22 + 33})
+    # cfg.set({"embedding_size":22 + 33})
     cfg.set({"embedding_size":22 })
     cfg.set({"minimap_mode": True})
 
@@ -113,8 +114,8 @@ def generate_map(env, map_size, food_handle, player_handles):
 
     # player_pos = [[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1], [(map_size-1)//2, (map_size-1)//2]]
     # env.add_agents(player_handles[0], method="custom", pos=[[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1]])
-    env.add_agents(player_handles[1], method="random", n=1)
-    env.add_agents(player_handles[0], method="random", n=4)
+    env.add_agents(player_handles[0], method="random", n=cnum)
+    env.add_agents(player_handles[1], method="random", n=5-cnum)
 
 
     # food
