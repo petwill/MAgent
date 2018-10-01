@@ -17,22 +17,22 @@ from magent.builtin.mx_model import DeepQNetwork as RLModel
 #from magent.builtin.mx_model import AdvantageActorCritic as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
-total_num = 50
-total_food_num = 20
+total_num = 1000
+total_food_num = 300
 
 def load_config(size):
     gw = magent.gridworld
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    # cfg.set({"embedding_size":22 + 33})
-    cfg.set({"embedding_size": 5 + total_num*2 + total_food_num*2})
+    # cfg.set({"embedding_size":23 + 33})
+    cfg.set({"embedding_size": 2 + total_num*2 + total_food_num*2})
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
         name="agent",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
-              'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
+              'view_range': gw.CircleRange(7), 'attack_range': gw.CircleRange(1),
               'damage': 12, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
@@ -40,7 +40,7 @@ def load_config(size):
     agent_strong = cfg.register_agent_type(
         name="agent_strong",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
-              'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
+              'view_range': gw.CircleRange(7), 'attack_range': gw.CircleRange(1),
               'damage': 25, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
@@ -181,9 +181,9 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     X_train = []
     y_train = []
     while not done:
-        # nums = [env.get_num(handle) for handle in player_handles]
-        # if nums != [4, 1]:
-            # break
+        nums = [env.get_num(handle) for handle in player_handles]
+        if nums != [args.coop_num, total_num-args.coop_num]:
+            break
 
 
         # get observation
@@ -281,17 +281,8 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
         # respawn
         food_num = env.get_num(food_handle)
-        for _ in range(total_food_num-food_num):
-            occupied_pos = cur_pos[0].tolist() + cur_pos[1].tolist() + env.get_pos(food_handle).tolist()
-
-            pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
-            while pos in occupied_pos:
-                pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
-
-            env.add_agents(food_handle, method="custom", pos=[pos])
-
-            # print('here', pos)
-
+        if total_food_num > food_num:
+            env.add_agents(food_handle, method="random", n=(total_food_num-food_num))
         """
         # stats info
         for i in range(n):
@@ -305,7 +296,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         step_ct += 1
 
         if train_id != -1:
-            if step_ct > 350:
+            if step_ct > 50:
                 break
         else:
             if step_ct > 1000:
@@ -430,7 +421,7 @@ if __name__ == "__main__":
                                  render=args.render or (k+1) % args.render_every == 0,
                                  print_every=args.print_every, eps=eps, args=args)
             log.info("round %d\t loss: %.3f\t reward1: %.2f\t reward2: %.2f\t value: %.3f\t pos_reward_ct: %d"
-                     % (k, loss, reward[0]/4, reward[1], value, pos_reward_ct))
+                     % (k, loss, reward[0]/args.coop_num, reward[1]/(total_num-args.coop_num), value, pos_reward_ct))
             print("round time %.2f  total time %.2f\n" % (time.time() - tic, time.time() - start))
             if args.log:
                 f.write('{},{}\n'.format(reward[0], reward[1]))
