@@ -17,8 +17,9 @@ from magent.builtin.mx_model import DeepQNetwork as RLModel
 #from magent.builtin.mx_model import AdvantageActorCritic as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
-total_agents = 20
-foodnum=10
+total_num = 6
+cnum = 4
+total_food_num = 5
 
 def load_config(size):
     gw = magent.gridworld
@@ -26,24 +27,24 @@ def load_config(size):
 
     cfg.set({"map_width": size, "map_height": size})
     # cfg.set({"embedding_size":22 + 33})
-    cfg.set({"embedding_size":4 + 2 })
+    cfg.set({"embedding_size": 3 + total_num*2 + total_food_num*2})
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
         name="agent",
-        attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 1,
-              'view_range': gw.CircleRange((size-1)//2), 'attack_range': gw.CircleRange(1),
+        attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
+              'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
               'damage': 12, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
 
-    # agent_strong = cfg.register_agent_type(
-        # name="agent_strong",
-        # attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
-              # 'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
-              # 'damage': 25, 'step_recover': 0,
-              # 'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
-              # })
+    agent_strong = cfg.register_agent_type(
+        name="agent_strong",
+        attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
+              'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
+              'damage': 25, 'step_recover': 0,
+              'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
+              })
 
     food = cfg.register_agent_type(
         name='food',
@@ -51,17 +52,9 @@ def load_config(size):
               'view_range': gw.CircleRange(1), 'attack_range': gw.CircleRange(0),
               'kill_reward': 1})
 
-    # dummy = cfg.register_agent_type(
-        # name='dummy',
-        # attr={'width': 1, 'length': 1, 'hp': 200000, 'speed': 0,
-              # 'view_range': gw.CircleRange((size-1)//2), 'attack_range': gw.CircleRange(0),
-              # 'kill_reward': 0})
-
     g_f = cfg.add_group(food)
-    # g_dummy = cfg.add_group(dummy)
     g_s = cfg.add_group(agent)
-    g_z = cfg.add_group(agent)
-
+    g_z = cfg.add_group(agent_strong)
 
     # a for agent
     a = gw.AgentSymbol(g_s, index='any')
@@ -69,8 +62,6 @@ def load_config(size):
     b = gw.AgentSymbol(g_f, index='any')
     # c for strong agent
     c = gw.AgentSymbol(g_z, index='any')
-    # d for dummy agent
-    # d = gw.AgentSymbol(g_dummy, index='any')
 
     cfg.add_reward_rule(gw.Event(a, 'attack', b), receiver=a, value=.5)
     cfg.add_reward_rule(gw.Event(c, 'attack', b), receiver=c, value=.5)
@@ -78,27 +69,85 @@ def load_config(size):
     cfg.add_reward_rule(gw.Event(c, 'attack', a), receiver=c, value=-1)
     cfg.add_reward_rule(gw.Event(a, 'attack', c), receiver=a, value=-1)
 
-    # cfg.add_reward_rule(gw.Event(a, 'attack', d), receiver=a, value=-1)
-    # cfg.add_reward_rule(gw.Event(c, 'attack', d), receiver=c, value=-1)
-
     return cfg
 
 
-def generate_map(env, map_size, food_handle, dummy_handle, player_handles, size0):
+def generate_map(env, map_size, food_handle, player_handles):
     center_x, center_y = map_size // 2, map_size // 2
 
-    # env.add_agents(dummy_handle, method="custom", pos=[[center_x, center_y]])
+    def add_square(pos, side, gap):
+        side = int(side)
+        for x in range(center_x - side//2, center_x + side//2 + 1, gap):
+            pos.append([x, center_y - side//2])
+            pos.append([x, center_y + side//2])
+        for y in range(center_y - side//2, center_y + side//2 + 1, gap):
+            pos.append([center_x - side//2, y])
+            pos.append([center_x + side//2, y])
 
-    env.add_agents(player_handles[0], method="random", n=size0)
-    env.add_agents(player_handles[1], method="random", n=total_agents-size0)
-    env.add_agents(food_handle, method="random", n=foodnum)
+    def add_random(pos, num):
+        for _ in range(num):
+            pos.append([random.randint(1, map_size-2), random.randint(1, map_size-2)])
+
+    # pos = []
+    # add_square(pos, map_size * 0.9, 3)
+    # add_square(pos, map_size * 0.8, 4)
+    # add_square(pos, map_size * 0.7, 6)
+    # add_random(pos, 5)
+    # shuffle(pos)
+
+    def remove_duplicates(lst):
+        seen = set()
+        output = []
+        for ob in lst:
+            ob = tuple(ob)
+            if ob in seen:
+                continue
+            output.append(list(ob))
+            seen.add(ob)
+        return output
 
 
-def play_a_round(env, map_size, food_handle, dummy_handle, player_handles, models, train_id=-1,
+    # player_pos = []
+    # add_random(player_pos, 100)
+    # player_pos = remove_duplicates(player_pos)
+    # sz = len(player_pos)//4
+    # env.add_agents(player_handles[0], method="custom", pos=player_pos[:-sz])
+    # env.add_agents(player_handles[1], method="custom", pos=player_pos[-sz:])
+
+    # player_pos = [[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1], [(map_size-1)//2, (map_size-1)//2]]
+    # env.add_agents(player_handles[0], method="custom", pos=[[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1]])
+    env.add_agents(player_handles[0], method="random", n=cnum)
+    env.add_agents(player_handles[1], method="random", n=total_num-cnum)
+
+
+    # food
+    # pos = []
+    # add_random(pos, 1)
+    # while pos[0] in player_pos:
+        # pos = []
+        # add_random(pos, 1)
+    # pos = remove_duplicates(pos)
+    # mx = my = map_size/2
+    # pos = [[mx,my], [mx-1, my], [mx+1, my], [mx, my-1], [mx, my+1]]
+    # add_square(pos, map_size * 0.65, 10)
+    # add_square(pos, map_size * 0.6,  1)
+    # add_square(pos, map_size * 0.55, 10)
+    # add_square(pos, map_size * 0.5,  1)
+    # add_square(pos, map_size * 0.45, 3)
+    # add_square(pos, map_size * 0.4, 1)
+    # add_square(pos, map_size * 0.3, 1)
+    # add_square(pos, map_size * 0.3 - 2, 1)
+    # add_square(pos, map_size * 0.3 - 4, 1)
+    # add_square(pos, map_size * 0.3 - 6, 1)
+    # print(pos)
+    env.add_agents(food_handle, method="random", n=total_food_num)
+
+
+def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1,
                  print_every=10, record=False, render=False, eps=None, args=None):
 
     env.reset()
-    generate_map(env, map_size, food_handle, dummy_handle, player_handles, args.size0)
+    generate_map(env, map_size, food_handle, player_handles)
 
     step_ct = 0
     done = False
@@ -134,42 +183,29 @@ def play_a_round(env, map_size, food_handle, dummy_handle, player_handles, model
     y_train = []
     while not done:
         nums = [env.get_num(handle) for handle in player_handles]
-        if nums != [args.size0, total_agents-args.size0]:
+        if nums != [cnum, total_num-cnum]:
             break
 
 
-        # global_obs = env.get_observation(dummy_handle)
         # get observation
         for i in range(n):
-            
             obs[i] = env.get_observation(player_handles[i])
             ids[i] = env.get_agent_id(player_handles[i])
             prev_pos[i] = env.get_pos(player_handles[i])
-        
-            # for j in range(len(ids[i])):
-                # obs[i][0][j,:,:] = global_obs[0]
-                # print(obs[i][1][j], prev_pos[i][j])
-                # input()
-        
-        # for i in range(11):
-            # print(obs[0][:,:,i])
-            # input()
 
-        for i in range(n):
-            """
+        for i in [1, 0]:
             ##########
             # add custom feature
             ########
-
-            # give 2D ID embedding
-            cnt = 2
             if args.diminishing:
                 for j in range(len(ids[i])):
-                    obs[i][1][j, cnt] = sum(history[ids[i][j]][-backpeak:])
-            cnt += 1
+                    obs[i][1][j, 0] = sum(history[ids[i][j]][-backpeak:])
+
+            # give ID embedding
+            cnt = 3
 
             food_positions = env.get_pos(food_handle).tolist()
-            assert len(food_positions) == 5
+            assert len(food_positions) == total_food_num
             for food_pos in food_positions:
                 for j in range(len(ids[i])):
                     obs[i][1][j, cnt] = food_pos[0]
@@ -184,13 +220,14 @@ def play_a_round(env, map_size, food_handle, dummy_handle, player_handles, model
                     obs[i][1][:, cnt+1] = prev_pos[k][l][1]
                     cnt += 2
 
-            assert cnt == 23
-            # if args.given:
-                # if i == 0:
-                    # for j in range(4):
-                        # obs[0][1][j, cnt+acts[1][0]] = 1
-            """
+            assert cnt == 3 + total_food_num * 2 + total_num * 2
+
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
+            # if i == 1:
+                # X_train.append(obs[1][1][0])
+                # y_train.append(acts[1][0])
+            # print(acts[i])
+            # input()
             env.set_action(player_handles[i], acts[i])
 
         # simulate one step
@@ -203,9 +240,10 @@ def play_a_round(env, map_size, food_handle, dummy_handle, player_handles, model
             total_rewards[i] += (np.array(rewards[i]) > .8).sum()
 
 
-        if args.adversarial and args.load_from is None:
-            for i in range(args.size0):
-                rewards[0][i] -= args.coe * sum(rewards[1])/(total_agents-args.size0)
+        # if args.adversarial and args.load_from is None:
+        if args.adversarial:
+            for i in range(cnum):
+                rewards[0][i] -= args.coe * sum(rewards[1])/(total_num-cnum)
             """
             target_pos = env.get_pos(player_handles[1])
             assert len(target_pos) == 1
@@ -247,42 +285,20 @@ def play_a_round(env, map_size, food_handle, dummy_handle, player_handles, model
         if render:
             env.render()
 
-        """
-        for id, r in zip(ids[0], rewards):
-            if r > 0.05 and id not in pos_reward_ct:
-                pos_reward_ct.add(id)
-        """
-
         # clear dead agents
         env.clear_dead()
 
         # respawn
         food_num = env.get_num(food_handle)
-        for _ in range(foodnum-food_num):
-            occupied_pos = cur_pos[0].tolist() + cur_pos[1].tolist() + env.get_pos(food_handle).tolist()
-
-            pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
-            while pos in occupied_pos:
-                pos = [random.randint(1, map_size-2), random.randint(1, map_size-2)]
-
-            env.add_agents(food_handle, method="custom", pos=[pos])
-
-            # print('here', pos)
-
-        """
-        # stats info
-        for i in range(n):
-            nums[i] = env.get_num(player_handles[i])
-        food_num = env.get_num(food_handle)
-
-        if step_ct % print_every == 0:
-            print("step %3d,  num %s,  step_reward %s" %
-                  (step_ct, [food_num] + nums, step_reward))
-        """
+        env.add_agents(food_handle, method="random", n=total_food_num-food_num)
         step_ct += 1
 
-        if step_ct > 350:
-            break
+        if train_id != -1:
+            if step_ct > 350:
+                break
+        else:
+            if step_ct > 1000:
+                break
 
     # train
     total_loss = value = 0
@@ -323,8 +339,7 @@ if __name__ == "__main__":
     parser.add_argument("--adversarial", action="store_true")
     parser.add_argument("--given", action="store_true")
     parser.add_argument("--log", action="store_true")
-    parser.add_argument("--coe", type=int)
-    parser.add_argument("--size0", type=int)
+    parser.add_argument("--coe", type=float)
     args = parser.parse_args()
 
     # set logger
@@ -340,7 +355,6 @@ if __name__ == "__main__":
 
     handles = env.get_handles()
     food_handle = handles[0]
-    dummy_handle = None
     player_handles = handles[1:]
 
     # sample eval observation set
@@ -348,7 +362,7 @@ if __name__ == "__main__":
     if args.eval:
         print("sample eval set...")
         env.reset()
-        generate_map(env, args.map_size, food_handle, dummy_handle, player_handles, args.size0)
+        generate_map(env, args.map_size, food_handle, player_handles)
         eval_obs = magent.utility.sample_observation(env, player_handles, 0, 2048, 500)
 
     # load models
@@ -375,12 +389,11 @@ if __name__ == "__main__":
     # print debug info
 
     print(args)
-    # print('view_space', env.get_view_space(dummy_handle))
-    # for i in range(len(player_handles)):
-        # print('view_space', env.get_view_space(player_handles[i]))
-        # print('feature_space', env.get_feature_space(player_handles[i]))
-        # print('action_space', env.get_action_space(player_handles[i]))
-        # print('view2attack', env.get_view2attack(player_handles[i]))
+    for i in range(len(player_handles)):
+        print('view_space', env.get_view_space(player_handles[i]))
+        print('feature_space', env.get_feature_space(player_handles[i]))
+        print('action_space', env.get_action_space(player_handles[i]))
+        print('view2attack', env.get_view2attack(player_handles[i]))
     # input()
 
     if args.record:
@@ -400,12 +413,12 @@ if __name__ == "__main__":
             tic = time.time()
             eps = magent.utility.piecewise_decay(k, [0, 400, 1000], [1.0, 0.2, 0.05]) if not args.greedy else 0
             loss, reward, value, pos_reward_ct = \
-                    play_a_round(env, args.map_size, food_handle, dummy_handle, player_handles, models,
+                    play_a_round(env, args.map_size, food_handle, player_handles, models,
                                  train_id, record=False,
                                  render=args.render or (k+1) % args.render_every == 0,
                                  print_every=args.print_every, eps=eps, args=args)
             log.info("round %d\t loss: %.3f\t reward1: %.2f\t reward2: %.2f\t value: %.3f\t pos_reward_ct: %d"
-                     % (k, loss, reward[0]/args.size0, reward[1]/(total_agents-args.size0), value, pos_reward_ct))
+                     % (k, loss, reward[0]/4, reward[1], value, pos_reward_ct))
             print("round time %.2f  total time %.2f\n" % (time.time() - tic, time.time() - start))
             if args.log:
                 f.write('{},{}\n'.format(reward[0], reward[1]))

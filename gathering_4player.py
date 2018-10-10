@@ -17,6 +17,7 @@ from magent.builtin.mx_model import DeepQNetwork as RLModel
 #from magent.builtin.mx_model import AdvantageActorCritic as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
+total_num=10
 
 def load_config(size):
     gw = magent.gridworld
@@ -24,7 +25,7 @@ def load_config(size):
 
     cfg.set({"map_width": size, "map_height": size})
     cfg.set({"embedding_size":22 + 33})
-    cfg.set({"embedding_size":22 })
+#    cfg.set({"embedding_size":22 })
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
@@ -174,7 +175,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     #####
     backpeak = 3
     thresh = 2
-    ng = -100
+    ng = -3
 
     X_train = []
     y_train = []
@@ -196,7 +197,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             ########
             if args.diminishing:
                 for j in range(len(ids[i])):
-                    obs[i][1][j, 0] = sum(history[ids[i][j]][-backpeak:])
+                    obs[i][1][j, 0] = sum(history[ids[i][j]][-backpeak+1:])
 
             # give 2D ID embedding
             cnt = 2
@@ -261,7 +262,10 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     xx = sum(history[id][-backpeak:])
                     rewards[i][idx] = ori_reward if xx < thresh else ng
                     if xx >= thresh:
+                        print(history[id][-backpeak:])
                         cnt += 1
+                if cnt > 0:
+                    print(i,cnt)
                 # print("agent_strong" if i else "agent", cnt)
 
         """
@@ -293,6 +297,8 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
         # respawn
         food_num = env.get_num(food_handle)
+        env.add_agents(food_handle, method="random", n=5-food_num)
+        """
         for _ in range(5-food_num):
             occupied_pos = cur_pos[0].tolist() + cur_pos[1].tolist() + env.get_pos(food_handle).tolist()
 
@@ -303,6 +309,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             env.add_agents(food_handle, method="custom", pos=[pos])
 
             # print('here', pos)
+        """
 
         """
         # stats info
@@ -317,7 +324,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         step_ct += 1
 
         if train_id != -1:
-            if step_ct > 350:
+            if step_ct > 1000:
                 break
         else:
             if step_ct > 1000:
@@ -434,7 +441,7 @@ if __name__ == "__main__":
         train_id = 0 if args.train else -1
         for k in range(start_from, start_from + args.n_round):
             tic = time.time()
-            eps = magent.utility.piecewise_decay(k, [0, 400, 1000], [1.0, 0.2, 0.05]) if not args.greedy else 0
+            eps = magent.utility.piecewise_decay(k, [0, 1000, 10000], [1.0, 0.2, 0.05]) if not args.greedy else 0
             loss, reward, value, pos_reward_ct = \
                     play_a_round(env, args.map_size, food_handle, player_handles, models,
                                  train_id, record=False,

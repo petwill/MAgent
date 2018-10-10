@@ -115,8 +115,8 @@ def generate_map(env, map_size, food_handle, player_handles):
 
     # player_pos = [[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1], [(map_size-1)//2, (map_size-1)//2]]
     # env.add_agents(player_handles[0], method="custom", pos=[[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1]])
-    env.add_agents(player_handles[1], method="random", n=total_num-args.coop_num)
     env.add_agents(player_handles[0], method="random", n=args.coop_num)
+    env.add_agents(player_handles[1], method="random", n=total_num-args.coop_num)
 
 
     # food
@@ -171,6 +171,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
     print("eps %s number %s" % (eps, nums))
     start_time = time.time()
 
+
     #####
     # diminishing reward shaping config
     #####
@@ -192,6 +193,9 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             ids[i] = env.get_agent_id(player_handles[i])
             prev_pos[i] = env.get_pos(player_handles[i])
 
+        food_positions = env.get_pos(food_handle).tolist()
+        assert len(food_positions) == total_food_num
+
         for i in [1, 0]:
             ##########
             # add custom feature
@@ -203,14 +207,13 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             # give ID embedding
             cnt = 5
 
-            food_positions = env.get_pos(food_handle).tolist()
-            assert len(food_positions) == total_food_num
             for food_pos in food_positions:
                 for j in range(len(ids[i])):
                     obs[i][1][j, cnt] = food_pos[0]
                     obs[i][1][j, cnt+1] = food_pos[1]
 
                 cnt += 2
+            #cnt += 200*2
 
             # add feature, add coordinate between agents
             for k in range(n):
@@ -230,14 +233,45 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         for i in range(n):
             rewards[i] = env.get_reward(player_handles[i])
             alives[i] = env.get_alive(player_handles[i])
-            cur_pos[i] = env.get_pos(player_handles[i])
+            cur_pos[i] = env.get_pos(player_handles[i]).tolist()
             total_rewards[i] += (np.array(rewards[i]) > .8).sum()
 
 
         # if args.adversarial and args.load_from is None:
         if args.adversarial:
+            def dis(x, y):
+                return abs(x[0]-y[0])+abs(x[1]+y[1])
+
+            def nearest(x, lst):
+                """
+                return sorted list of lst by distance
+                """
+                return sorted(lst, key=lambda y: abs(y[0]-x[0])+abs(y[1]-x[1]))
+
+            def get_attack_position(x, action):
+                if action == 29:
+                    return [x[0], x[1]-1]
+                if action == 30:
+                    return [x[0]-1, x[1]]
+                if action == 31:
+                    return [x[0]+1, x[1]]
+                if action == 32:
+                    return [x[0],x[1]+1]
+
             for i in range(args.coop_num):
-                rewards[0][i] -= args.coe * sum(rewards[1])/len(rewards[1])
+                # 29, 30, 31, 32
+                if rewards[0][i] > .8:
+                    fp = get_attack_position(cur_pos[0][i], acts[0][i])
+                    lst = nearest(fp, cur_pos[1])
+                    #print(fp, lst[:10])
+                    for j in range(10):
+                        if dis(fp, lst[j]) <= 7:
+                            rewards[0][i] += args.coe 
+
+                    #if rewards[0][i] > 1.:
+                    #    print(rewards[0][i])
+                    #    input()
+                #rewards[0][i] -= args.coe * sum(rewards[1])/len(rewards[1])
 
         if args.diminishing:
 
@@ -299,7 +333,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             if step_ct > 50:
                 break
         else:
-            if step_ct > 1000:
+            if step_ct > 50:
                 break
 
     # train
@@ -325,14 +359,14 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--save_every", type=int, default=2000000)
+    parser.add_argument("--save_every", type=int, default=2000)
     parser.add_argument("--render_every", type=int, default=10000000)
-    parser.add_argument("--n_round", type=int, default=1500)
+    parser.add_argument("--n_round", type=int, default=15000)
     parser.add_argument("--render", action='store_true')
     parser.add_argument("--load_from", type=int)
     parser.add_argument("--train", action="store_true")
     parser.add_argument("--print_every", type=int, default=100)
-    parser.add_argument("--map_size", type=int, default=200)
+    parser.add_argument("--map_size", type=int, default=100)
     parser.add_argument("--greedy", action="store_true")
     parser.add_argument("--name", type=str, default="mygather")
     parser.add_argument("--record", action="store_true")
@@ -371,10 +405,10 @@ if __name__ == "__main__":
     # load models
     models = [
         RLModel(env, player_handles[0], "agent",
-                batch_size=512, memory_size=2 ** 19, target_update=100,
+                batch_size=512, memory_size=2 ** 19, target_update=10,
                 train_freq=4, eval_obs=eval_obs[0]),
         RLModel(env, player_handles[1], "agent_strong",
-                batch_size=512, memory_size=2 ** 19, target_update=100,
+                batch_size=512, memory_size=2 ** 19, target_update=10,
                 train_freq=4, eval_obs=eval_obs[1])
     ]
 
