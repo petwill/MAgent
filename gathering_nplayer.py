@@ -255,7 +255,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
         if args.diminishing:
 
-            for i in range(n):
+            for i in [0]:
                 cnt = 0
                 for idx, id in enumerate(ids[i]):
                     ori_reward = rewards[i][idx]
