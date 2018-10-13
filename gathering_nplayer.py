@@ -17,17 +17,13 @@ from magent.builtin.mx_model import DeepQNetwork as RLModel
 #from magent.builtin.mx_model import AdvantageActorCritic as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
-total_num = 6
-cnum = 4
-total_food_num = 5
-
 def load_config(size):
     gw = magent.gridworld
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    # cfg.set({"embedding_size":22 + 33})
-    cfg.set({"embedding_size": 3 + total_num*2 + total_food_num*2})
+    #cfg.set({"embedding_size":22 + 33})
+    cfg.set({"embedding_size": 3 + 1 + total_num*2 + total_food_num*2})
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
@@ -197,12 +193,15 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             ##########
             # add custom feature
             ########
-            if args.diminishing:
-                for j in range(len(ids[i])):
-                    obs[i][1][j, 0] = sum(history[ids[i][j]][-backpeak:])
 
             # give ID embedding
             cnt = 3
+
+            if args.diminishing:
+                for j in range(len(ids[i])):
+                    obs[i][1][j, cnt] = sum(history[ids[i][j]][-backpeak:])
+
+            cnt += 1
 
             food_positions = env.get_pos(food_handle).tolist()
             assert len(food_positions) == total_food_num
@@ -220,7 +219,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     obs[i][1][:, cnt+1] = prev_pos[k][l][1]
                     cnt += 2
 
-            assert cnt == 3 + total_food_num * 2 + total_num * 2
+            assert cnt == 3 + 1 + total_food_num * 2 + total_num * 2
 
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
             # if i == 1:
@@ -294,7 +293,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         step_ct += 1
 
         if train_id != -1:
-            if step_ct > 350:
+            if step_ct > 1000:
                 break
         else:
             if step_ct > 1000:
@@ -339,8 +338,18 @@ if __name__ == "__main__":
     parser.add_argument("--adversarial", action="store_true")
     parser.add_argument("--given", action="store_true")
     parser.add_argument("--log", action="store_true")
+    parser.add_argument("--food_num", type=int, default=5)
+    parser.add_argument("--total_num", type=int, default=6)
+    parser.add_argument("--cnum", type=int, default=4)
     parser.add_argument("--coe", type=float)
+
     args = parser.parse_args()
+
+    global total_food_num, total_num, cnum
+    total_food_num = args.food_num 
+    total_num = args.total_num
+    cnum = args.cnum
+
 
     # set logger
     log.basicConfig(level=log.INFO, filename=args.name + '.log')
@@ -418,7 +427,7 @@ if __name__ == "__main__":
                                  render=args.render or (k+1) % args.render_every == 0,
                                  print_every=args.print_every, eps=eps, args=args)
             log.info("round %d\t loss: %.3f\t reward1: %.2f\t reward2: %.2f\t value: %.3f\t pos_reward_ct: %d"
-                     % (k, loss, reward[0]/4, reward[1], value, pos_reward_ct))
+                     % (k, loss, reward[0]/cnum, reward[1]/(total_num-cnum), value, pos_reward_ct))
             print("round time %.2f  total time %.2f\n" % (time.time() - tic, time.time() - start))
             if args.log:
                 f.write('{},{}\n'.format(reward[0], reward[1]))
