@@ -17,15 +17,13 @@ from magent.builtin.mx_model import DeepQNetwork as RLModel
 #from magent.builtin.mx_model import AdvantageActorCritic as RLModel
 # change this line to magent.builtin.tf_model to use tensorflow
 
-total_num=10
-
 def load_config(size):
     gw = magent.gridworld
     cfg = gw.Config()
 
     cfg.set({"map_width": size, "map_height": size})
-    cfg.set({"embedding_size":22 + 33})
-#    cfg.set({"embedding_size":22 })
+    #cfg.set({"embedding_size":22 + 33})
+    cfg.set({"embedding_size":23 })
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
@@ -195,12 +193,14 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             ##########
             # add custom feature
             ########
-            if args.diminishing:
-                for j in range(len(ids[i])):
-                    obs[i][1][j, 0] = sum(history[ids[i][j]][-backpeak+1:])
-
             # give 2D ID embedding
             cnt = 2
+
+            if args.diminishing:
+                for j in range(len(ids[i])):
+                    obs[i][1][j, cnt] = sum(history[ids[i][j]][-backpeak+1:])
+            cnt += 1
+
 
             food_positions = env.get_pos(food_handle).tolist()
             assert len(food_positions) == 5
@@ -218,7 +218,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     obs[i][1][:, cnt+1] = prev_pos[k][l][1]
                     cnt += 2
 
-            assert cnt == 22
+            assert cnt == 23
 
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
             # if i == 1:
@@ -254,7 +254,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
         if args.diminishing:
 
-            for i in range(n):
+            for i in [0]:
                 cnt = 0
                 for idx, id in enumerate(ids[i]):
                     ori_reward = rewards[i][idx]
