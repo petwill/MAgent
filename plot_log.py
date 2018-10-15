@@ -37,13 +37,15 @@ def plot(filename):
 
     for index in [1, 2]:
         index = int(index)
-        plt.plot(moving_average(data[:, index], 10), label='agent' if index == 1 else 'agent_strong')
+        plt.plot(moving_average(data[:, index], 100), label=filename+'agent' if index == 1 else filename+'agent_strong')
 
-    print('saving ...')
-    plt.legend()
-    plt.savefig(filename.split('.')[0])
     #plt.show()
 
 if __name__=='__main__':
     import sys
-    plot(sys.argv[1])
+    plot('gathering_3-2.log')
+    plot('gathering_3-2_1.log')
+
+    print('saving ...')
+    plt.legend()
+    plt.savefig('tmp.png')
