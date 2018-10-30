@@ -30,7 +30,7 @@ def load_config(size):
         name="agent",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
               'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
-              'damage': 12, 'step_recover': 0,
+              'damage': 20, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
 
@@ -38,13 +38,13 @@ def load_config(size):
         name="agent_strong",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
               'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
-              'damage': 25, 'step_recover': 0,
+              'damage': 30, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
 
     food = cfg.register_agent_type(
         name='food',
-        attr={'width': 1, 'length': 1, 'hp': 20, 'speed': 0,
+        attr={'width': 1, 'length': 1, 'hp': 60, 'speed': 0,
               'view_range': gw.CircleRange(1), 'attack_range': gw.CircleRange(0),
               'kill_reward': 1})
 
@@ -69,73 +69,9 @@ def load_config(size):
 
 
 def generate_map(env, map_size, food_handle, player_handles):
-    center_x, center_y = map_size // 2, map_size // 2
 
-    def add_square(pos, side, gap):
-        side = int(side)
-        for x in range(center_x - side//2, center_x + side//2 + 1, gap):
-            pos.append([x, center_y - side//2])
-            pos.append([x, center_y + side//2])
-        for y in range(center_y - side//2, center_y + side//2 + 1, gap):
-            pos.append([center_x - side//2, y])
-            pos.append([center_x + side//2, y])
-
-    def add_random(pos, num):
-        for _ in range(num):
-            pos.append([random.randint(1, map_size-2), random.randint(1, map_size-2)])
-
-    # pos = []
-    # add_square(pos, map_size * 0.9, 3)
-    # add_square(pos, map_size * 0.8, 4)
-    # add_square(pos, map_size * 0.7, 6)
-    # add_random(pos, 5)
-    # shuffle(pos)
-
-    def remove_duplicates(lst):
-        seen = set()
-        output = []
-        for ob in lst:
-            ob = tuple(ob)
-            if ob in seen:
-                continue
-            output.append(list(ob))
-            seen.add(ob)
-        return output
-
-
-    # player_pos = []
-    # add_random(player_pos, 100)
-    # player_pos = remove_duplicates(player_pos)
-    # sz = len(player_pos)//4
-    # env.add_agents(player_handles[0], method="custom", pos=player_pos[:-sz])
-    # env.add_agents(player_handles[1], method="custom", pos=player_pos[-sz:])
-
-    # player_pos = [[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1], [(map_size-1)//2, (map_size-1)//2]]
-    # env.add_agents(player_handles[0], method="custom", pos=[[1,1], [1,map_size-2], [map_size-2, map_size-2], [map_size-2, 1]])
     env.add_agents(player_handles[0], method="random", n=cnum)
     env.add_agents(player_handles[1], method="random", n=total_num-cnum)
-
-
-    # food
-    # pos = []
-    # add_random(pos, 1)
-    # while pos[0] in player_pos:
-        # pos = []
-        # add_random(pos, 1)
-    # pos = remove_duplicates(pos)
-    # mx = my = map_size/2
-    # pos = [[mx,my], [mx-1, my], [mx+1, my], [mx, my-1], [mx, my+1]]
-    # add_square(pos, map_size * 0.65, 10)
-    # add_square(pos, map_size * 0.6,  1)
-    # add_square(pos, map_size * 0.55, 10)
-    # add_square(pos, map_size * 0.5,  1)
-    # add_square(pos, map_size * 0.45, 3)
-    # add_square(pos, map_size * 0.4, 1)
-    # add_square(pos, map_size * 0.3, 1)
-    # add_square(pos, map_size * 0.3 - 2, 1)
-    # add_square(pos, map_size * 0.3 - 4, 1)
-    # add_square(pos, map_size * 0.3 - 6, 1)
-    # print(pos)
     env.add_agents(food_handle, method="random", n=total_food_num)
 
 
@@ -220,6 +156,9 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     cnt += 2
 
             assert cnt == 3 + 1 + total_food_num * 2 + total_num * 2
+            for k in range(n):
+                for l in range(len(ids[k])):
+                    obs[i][1][:, cnt:] = 0
 
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
             # if i == 1:
@@ -255,7 +194,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
         if args.diminishing:
 
-            for i in [0]:
+            for i in [0, 1]:
                 cnt = 0
                 for idx, id in enumerate(ids[i]):
                     ori_reward = rewards[i][idx]
@@ -442,4 +381,3 @@ if __name__ == "__main__":
         # print(np.mean(reward1), np.std(reward1))
         if args.log:
             f.close()
-

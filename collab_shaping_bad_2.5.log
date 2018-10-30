@@ -35151,3 +35151,16 @@ INFO:root:round 30002	 loss: 0.000	 reward1: 117.50	 reward2: 162.00	 value: 0.0
 INFO:root:round 30003	 loss: 0.000	 reward1: 116.50	 reward2: 174.00	 value: 0.000	 pos_reward_ct: 0
 INFO:root:round 30004	 loss: 0.000	 reward1: 115.00	 reward2: 167.00	 value: 0.000	 pos_reward_ct: 0
 INFO:root:round 30005	 loss: 0.000	 reward1: 111.75	 reward2: 156.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 29999	 loss: 0.000	 reward1: 128.50	 reward2: 163.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30000	 loss: 0.000	 reward1: 122.25	 reward2: 184.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30001	 loss: 0.000	 reward1: 128.50	 reward2: 156.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 29999	 loss: 0.000	 reward1: 127.75	 reward2: 164.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30000	 loss: 0.000	 reward1: 125.75	 reward2: 160.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30001	 loss: 0.000	 reward1: 25.50	 reward2: 36.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30002	 loss: 0.000	 reward1: 123.75	 reward2: 167.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 29999	 loss: 0.000	 reward1: 124.25	 reward2: 166.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30000	 loss: 0.000	 reward1: 133.00	 reward2: 175.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30001	 loss: 0.000	 reward1: 127.00	 reward2: 160.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30002	 loss: 0.000	 reward1: 124.25	 reward2: 159.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30003	 loss: 0.000	 reward1: 129.75	 reward2: 159.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30004	 loss: 0.000	 reward1: 121.75	 reward2: 173.00	 value: 0.000	 pos_reward_ct: 0

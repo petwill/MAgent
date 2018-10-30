@@ -37,14 +37,18 @@ def plot(filename):
 
     for index in [1, 2]:
         index = int(index)
-        plt.plot(moving_average(data[:, index], 100), label=filename+'agent' if index == 1 else filename+'agent_strong')
+        plt.plot(moving_average(data[:, index], 500), label=filename+'agent' if index == 1 else filename+'agent_strong')
 
     #plt.show()
 
 if __name__=='__main__':
     import sys
-    plot('gathering_3-2.log')
-    plot('gathering_3-2_1.log')
+    # for i in ['.5', '1', '1.5', '2', '2.5']:
+    # for i in ['.5', '1.5', '2.5']:
+        # plot('collab_shaping_bad_'+i+'.log')
+    for i in ['0',  '1', '2']:
+        plot('collab_dim_'+i+'.log')
+
 
     print('saving ...')
     plt.legend()

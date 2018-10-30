@@ -39845,3 +39845,5 @@ INFO:root:round 28095	 loss: 0.000	 reward1: 147.00	 reward2: 144.00	 value: 0.0
 INFO:root:round 28096	 loss: 0.000	 reward1: 146.25	 reward2: 172.00	 value: 0.000	 pos_reward_ct: 0
 INFO:root:round 28097	 loss: 0.000	 reward1: 149.00	 reward2: 151.00	 value: 0.000	 pos_reward_ct: 0
 INFO:root:round 28098	 loss: 0.000	 reward1: 145.50	 reward2: 154.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 29999	 loss: 0.000	 reward1: 2.25	 reward2: 0.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30000	 loss: 0.000	 reward1: 10.00	 reward2: 4.00	 value: 0.000	 pos_reward_ct: 0

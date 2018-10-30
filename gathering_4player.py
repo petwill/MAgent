@@ -177,7 +177,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
     X_train = []
     y_train = []
-    while not done:
+    while True:
         nums = [env.get_num(handle) for handle in player_handles]
         if nums != [4, 1]:
             break
