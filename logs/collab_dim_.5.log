@@ -1,0 +1,7 @@
+INFO:root:round 29999	 loss: 0.000	 reward1: 160.50	 reward2: 226.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30000	 loss: 0.000	 reward1: 161.75	 reward2: 206.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30001	 loss: 0.000	 reward1: 162.25	 reward2: 198.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30002	 loss: 0.000	 reward1: 161.75	 reward2: 221.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30003	 loss: 0.000	 reward1: 164.25	 reward2: 204.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30004	 loss: 0.000	 reward1: 164.75	 reward2: 201.00	 value: 0.000	 pos_reward_ct: 0
+INFO:root:round 30005	 loss: 0.000	 reward1: 159.25	 reward2: 199.00	 value: 0.000	 pos_reward_ct: 0

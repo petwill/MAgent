@@ -23,14 +23,14 @@ def load_config(size):
 
     cfg.set({"map_width": size, "map_height": size})
     #cfg.set({"embedding_size":22 + 33})
-    cfg.set({"embedding_size": 3 + 1 + total_num*2 + total_food_num*2})
+    cfg.set({"embedding_size": 4 + 1 + total_num*2 + total_food_num*2})
     cfg.set({"minimap_mode": True})
 
     agent = cfg.register_agent_type(
         name="agent",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
               'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
-              'damage': 20, 'step_recover': 0,
+              'damage': 12, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
 
@@ -38,13 +38,13 @@ def load_config(size):
         name="agent_strong",
         attr={'width': 1, 'length': 1, 'hp': 300, 'speed': 3,
               'view_range': gw.CircleRange(2), 'attack_range': gw.CircleRange(1),
-              'damage': 30, 'step_recover': 0,
+              'damage': 24, 'step_recover': 0,
               'step_reward': -0.01,  'dead_penalty': -1, 'attack_penalty': -0.1,
               })
 
     food = cfg.register_agent_type(
         name='food',
-        attr={'width': 1, 'length': 1, 'hp': 60, 'speed': 0,
+        attr={'width': 1, 'length': 1, 'hp': 20, 'speed': 0,
               'view_range': gw.CircleRange(1), 'attack_range': gw.CircleRange(0),
               'kill_reward': 1})
 
@@ -113,7 +113,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
 
     X_train = []
     y_train = []
-    while not done:
+    while True:
         nums = [env.get_num(handle) for handle in player_handles]
         if nums != [cnum, total_num-cnum]:
             break
@@ -131,7 +131,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
             ########
 
             # give ID embedding
-            cnt = 3
+            cnt = 4
 
             if args.diminishing:
                 for j in range(len(ids[i])):
@@ -155,10 +155,7 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                     obs[i][1][:, cnt+1] = prev_pos[k][l][1]
                     cnt += 2
 
-            assert cnt == 3 + 1 + total_food_num * 2 + total_num * 2
-            for k in range(n):
-                for l in range(len(ids[k])):
-                    obs[i][1][:, cnt:] = 0
+            assert cnt == 4 + 1 + total_food_num * 2 + total_num * 2
 
             acts[i] = models[i].infer_action(obs[i], ids[i], policy='e_greedy', eps=eps)
             # if i == 1:
@@ -182,15 +179,6 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         if args.adversarial:
             for i in range(cnum):
                 rewards[0][i] -= args.coe * sum(rewards[1])/(total_num-cnum)
-            """
-            target_pos = env.get_pos(player_handles[1])
-            assert len(target_pos) == 1
-            target_pos = target_pos[0]
-            for i in range(4):
-                cur_dis = abs(target_pos[0]-cur_pos[0][i][0])+abs(target_pos[1]-cur_pos[0][i][1])
-                rewards[0][i] -= cur_dis
-
-            """
 
         if args.diminishing:
 
@@ -205,13 +193,6 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
                         cnt += 1
                 # print("agent_strong" if i else "agent", cnt)
 
-        """
-        if share_reward:
-            for i in range(n):
-                s = sum(rewards[i])
-                for j in range(len(rewards[i])):
-                    rewards[i][j] = s
-        """
         # sample
         step_reward = [None for _ in range(n)]
         if train_id != -1:
@@ -231,13 +212,10 @@ def play_a_round(env, map_size, food_handle, player_handles, models, train_id=-1
         env.add_agents(food_handle, method="random", n=total_food_num-food_num)
         step_ct += 1
 
-        if train_id != -1:
-            if step_ct > 1000:
-                break
-        else:
-            if step_ct > 1000:
-                break
+        if step_ct > 1000:
+            break
 
+    print(step_ct)
     # train
     total_loss = value = 0
     if train_id != -1:

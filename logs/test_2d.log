@@ -1,0 +1,11 @@
+INFO:root:round 0	 loss: 41.106	 reward1: 2.00	 reward2: 0.17	 value: 9.560	 pos_reward_ct: 0
+INFO:root:round 0	 loss: 46.594	 reward1: 1.50	 reward2: 0.00	 value: 10.187	 pos_reward_ct: 0
+INFO:root:round 1	 loss: 38.259	 reward1: 1.75	 reward2: 0.17	 value: 10.515	 pos_reward_ct: 0
+INFO:root:round 2	 loss: 33.412	 reward1: 1.50	 reward2: 0.00	 value: 11.695	 pos_reward_ct: 0
+INFO:root:round 3	 loss: 32.069	 reward1: 1.25	 reward2: 0.50	 value: 12.840	 pos_reward_ct: 0
+INFO:root:round 4	 loss: 27.182	 reward1: 1.50	 reward2: 0.00	 value: 14.302	 pos_reward_ct: 0
+INFO:root:round 5	 loss: 24.716	 reward1: 1.00	 reward2: 0.00	 value: 15.973	 pos_reward_ct: 0
+INFO:root:round 6	 loss: 21.884	 reward1: 2.00	 reward2: 0.00	 value: 17.226	 pos_reward_ct: 0
+INFO:root:round 7	 loss: 18.821	 reward1: 1.25	 reward2: 0.00	 value: 18.635	 pos_reward_ct: 0
+INFO:root:round 0	 loss: 45.818	 reward1: 0.88	 reward2: 1.00	 reward3: 3.00	 value: 9.130	 pos_reward_ct: 0
+INFO:root:round 1	 loss: 37.196	 reward1: 0.25	 reward2: 1.00	 reward3: 1.00	 value: 10.000	 pos_reward_ct: 0
